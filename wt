@@ -1,0 +1,90 @@
+#!/usr/bin/env zsh
+# wt — create a git worktree in <repo>/.worktrees, open it as a cmux workspace
+# Usage: wt <branch-name> [--base <ref>] [--no-open]
+set -euo pipefail
+
+emulate -L zsh
+
+usage() {
+  print -u2 "usage: wt <branch-name> [--base <ref>] [--no-open]"
+  exit 1
+}
+
+[[ $# -ge 1 ]] || usage
+
+branch=""
+base=""
+no_open=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --base)    [[ $# -ge 2 ]] || usage; base="$2"; shift 2 ;;
+    --no-open) no_open=1; shift ;;
+    -h|--help) usage ;;
+    -*)        print -u2 "wt: unknown option: $1"; usage ;;
+    *)         [[ -z "$branch" ]] || usage; branch="$1"; shift ;;
+  esac
+done
+
+[[ -n "$branch" ]] || usage
+
+# Resolve the repo from the current directory (works from subdirectories).
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+  print -u2 "wt: not inside a git repository"; exit 1
+}
+
+# Sanitize branch name into a safe directory name.
+dir_name="${branch//\//_}"
+
+wt_root="${repo_root}/.worktrees"
+wt_dir="${wt_root}/${dir_name}"
+
+# Keep the folder out of git: .worktrees is tracked-by-nothing (directory
+# lives inside the repo, ignored via .git/info/exclude which is not itself
+# versioned).
+exclude_file="${repo_root}/.git/info/exclude"
+if [[ -f "$exclude_file" ]] && ! grep -qs '^\.worktrees$' "$exclude_file"; then
+  echo ".worktrees" >> "$exclude_file"
+fi
+
+if [[ -d "$wt_dir/.git" || -f "$wt_dir/.git" ]]; then
+  print -u2 "wt: worktree already exists at $wt_dir — opening it"
+elif [[ -e "$wt_dir" ]]; then
+  print -u2 "wt: path exists and is not a worktree: $wt_dir"; exit 1
+else
+  mkdir -p "$wt_root"
+  if [[ -n "$base" ]]; then
+    git -C "$repo_root" worktree add -b "$branch" "$wt_dir" "$base"
+  else
+    git -C "$repo_root" worktree add -b "$branch" "$wt_dir"
+  fi
+fi
+
+if [[ "$no_open" -eq 1 ]]; then
+  print "wt: created $wt_dir"
+  exit 0
+fi
+
+# Open a cmux workspace pointed at the worktree.
+cmux_bin="/Applications/cmux.app/Contents/Resources/bin/cmux"
+[[ -x "$cmux_bin" ]] || cmux_bin="$(command -v cmux 2>/dev/null || true)"
+# Title-case of the kebab/snake branch suffix: "pcr-My-feature" ->
+# "wt Pcr My Feature"; "feature/add-thing" -> "wt Add Thing".
+title=""
+for word in "${(@s:-:)${(@s:_:)${branch#*/}}}"; do
+  title+="${(U)word:0:1}${(L)word:1} "
+done
+title="${title% }"
+
+export CMUX_QUIET=1
+ws_json="$("$cmux_bin" --json workspace create --name "$title" --cwd "$wt_dir" 2>/dev/null)" || \
+  ws_json="$("$cmux_bin" --json new-workspace --name "$title" --cwd "$wt_dir" 2>/dev/null)" || {
+  print -u2 "wt: could not open cmux workspace; worktree at $wt_dir"
+  exit 0
+}
+ws_ref="$(print -r -- "$ws_json" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["workspace_ref"])' 2>/dev/null)" || ws_ref=""
+if [[ -n "$ws_ref" ]]; then
+  "$cmux_bin" workspace select "$ws_ref" >/dev/null 2>&1 || true
+  print "wt: worktree $wt_dir opened as cmux workspace '$title' ($ws_ref)"
+else
+  print "wt: worktree $wt_dir opened as cmux workspace '$title'"
+fi
