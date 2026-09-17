@@ -1,0 +1,26 @@
+{
+  "grilling": {
+    "patch": "local modifications, see skills/<name> in ZenPylon/zen-util",
+    "skillFolderHash": "f0732035b8b1b60ae39454e4191caef32fa91903",
+    "skillPath": "skills/productivity/grilling/SKILL.md",
+    "source": "mattpocock/skills",
+    "sourceUrl": "https://github.com/mattpocock/skills.git",
+    "vendoredAt": "2026-09-17"
+  },
+  "retro": {
+    "patch": "local modifications, see skills/<name> in ZenPylon/zen-util",
+    "skillFolderHash": "335c1862a43da9d629abafdb79ca0c0de118be08",
+    "skillPath": "skills/in-progress/retro/SKILL.md",
+    "source": "mattpocock/skills",
+    "sourceUrl": "https://github.com/mattpocock/skills.git",
+    "vendoredAt": "2026-09-17"
+  },
+  "to-tickets": {
+    "patch": "local modifications, see skills/<name> in ZenPylon/zen-util",
+    "skillFolderHash": "b32c94e5a51c24ee9c41fcb7fe9ea9fff9af6369",
+    "skillPath": "skills/engineering/to-tickets/SKILL.md",
+    "source": "mattpocock/skills",
+    "sourceUrl": "https://github.com/mattpocock/skills.git",
+    "vendoredAt": "2026-09-17"
+  }
+}
