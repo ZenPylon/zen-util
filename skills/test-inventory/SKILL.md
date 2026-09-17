@@ -1,15 +1,14 @@
 ---
 name: test-inventory
 description: >
-  Exhaustively enumerate, review, and sign off the unit/integration tests for a
-  feature BEFORE any test code is written. Takes a spec plus agreed seams (the
-  output of to-spec), brainstorms the full test inventory per seam — happy path,
-  validation, errors, edge cases, concurrency, integration — works it through
-  grilling rounds with the user, then produces a reviewable inventory document.
-  Use when the user says "list the tests", "what tests should we write",
-  "test enumeration", or after seams are confirmed but before TDD starts.
-  Not for: writing the tests themselves (use tdd), QA sprint/release test plans
-  (use a test-planning skill), or reviewing finished test code.
+  Enumerate, review, and sign off the unit/integration tests for a feature
+  BEFORE any test code is written. Takes a spec plus agreed seams (the output
+  of to-spec); produces a reviewable inventory document, then hands it to tdd
+  as ordered slices. Use when the user says "list the tests", "what tests
+  should we write", "test enumeration", or after seams are confirmed but
+  before TDD starts. Not for: writing the tests themselves (use tdd), QA
+  sprint/release test plans (use a test-planning skill), or reviewing
+  finished test code.
 ---
 
 # Test Inventory
@@ -24,20 +23,22 @@ Two failure modes guard everything below:
 
 1. **Fabrication** — a test for behavior no upstream declares is a defect, not
    coverage. Every inventory row traces to the spec, an acceptance criterion,
-   or an error the interface can actually produce.
+   or an error the interface can actually produce. Never invent error cases
+   the interface cannot produce because they "seem thorough".
 2. **Combinatorial blow-up** — depth follows risk. A 10-switch module does not
    get 1,024 rows; it gets risk-selected boundaries, negatives, and a few
-   pairwise combinations. Trivial areas get happy-path-only.
+   pairwise combinations. Trivial areas get happy-path-only. Row count is not
+   coverage: blow-up is a defect in both directions (unmaintainable, and it
+   hides which behaviors are actually risky).
 
 ## Inputs
 
-1. 1. The spec (from `to-spec`, an issue, or prose). If no spec exists, stop
+1. The spec (from `to-spec`, an issue, or prose). If no spec exists, stop
    and send the user to `grilling` first — an inventory built on an
    unchallenged plan inherits its blind spots.
-2. 2. The **agreed seams**. If seams are not yet agreed, propose them first
+2. The **agreed seams**. If seams are not yet agreed, propose them first
    (highest seam possible, fewest overall — see `tdd`/`codebase-design`), and
-   confirm with the user before enumerating anything. No inventory row exists
-   at an unconfirmed seam.
+   confirm with the user before enumerating anything.
 
 ## Workflow
 
@@ -60,8 +61,8 @@ Categories (skip any that don't apply to the seam, and say so):
 - **Integration points** — behavior across each boundary the seam crosses.
 
 While enumerating, read the actual code around each seam if it exists — the
-code's real error paths and boundary handling are facts the spec may not
-mention. A row sourced from code rather than spec is legal but must be marked
+spec omits real error paths, and rows sourced from code are often the most
+valuable. A row sourced from code rather than spec is legal but must be marked
 `source: code` so the user can confirm it's a behavior worth pinning.
 
 ### Step 2: Risk-weight the inventory
@@ -73,9 +74,8 @@ breaking). Depth follows risk:
 - MEDIUM: happy path + the two or three most dangerous negatives.
 - LOW: happy path only, or drop the row entirely.
 
-An inventory that is combinatorial (every permutation) or padded (rows that
-restate each other) is a defect. Cut both. If two rows assert the same
-observable result at the same seam, keep one.
+Cut padding: if two rows assert the same observable result at the same seam,
+keep one.
 
 ### Step 3: Grill in rounds
 
@@ -97,14 +97,14 @@ silently assumed.
 Write the final inventory to `docs/test-inventories/<feature>.md` (create the
 directory if needed). Structure:
 
-1. 1. **Seams** — one line each, as confirmed.
-2. 2. **Inventory table** — `id · seam · behavior · expected result · risk ·
+1. **Seams** — one line each, as confirmed.
+2. **Inventory table** — `id · seam · behavior · expected result · risk ·
    source`. IDs stable (`T-01`, `T-02`, …) so tickets and tests can reference
    rows.
-3. 3. **Explicitly dropped** — candidate rows cut in review, each with a
+3. **Explicitly dropped** — candidate rows cut in review, each with a
    one-line reason. This makes the not-testing decision visible instead of
    silent.
-4. 4. **Assumptions** — anything the inventory relies on that no upstream
+4. **Assumptions** — anything the inventory relies on that no upstream
    declares.
 
 Then get explicit user sign-off on the document.
@@ -122,44 +122,23 @@ the inventory in bulk; that is horizontal slicing and it fails (see `tdd`).
 
 **Hard rules:**
 
-- 1. **No test code before sign-off.** This skill produces a document; `tdd`
+1. **No test code before sign-off.** This skill produces a document; `tdd`
    produces code, one slice at a time.
-- 2. **No unconfirmed seams.** Confirm seams first; enumerate second.
-- 3. **Every row traces to a source.** Spec section, acceptance criterion, or
-   `source: code` with user confirmation. Fabricated behavior is a defect.
-- 4. **Risk-weighted, not combinatorial, not padded.** Cut permutations and
-   restatements; depth follows risk.
-- 5. **Dropped rows are recorded, not deleted silently.**
+2. **No unconfirmed seams.** Confirm seams first; enumerate second.
+3. **Dropped rows are recorded, not deleted silently.**
 
 **Preferences:**
 
-- 1. Order rounds by seam; within a seam, happy path → validation → errors →
+1. Order rounds by seam; within a seam, happy path → validation → errors →
    edges → concurrency.
-- 2. Keep each row to one line in rounds; the document can expand expected
+2. Keep each row to one line in rounds; the document can expand expected
    results where the observable output needs precision (exact message, error
    code).
 
-## Anti-patterns
-
-- **Inventory as a test-writing script.** Generating all test files from the
-  list in one pass — imagined behavior, insensitive tests, horizontal slicing.
-- **The long list that reads as rigor.** Row count is not coverage; a
-  combinatorial blow-up is a defect in both directions (unmaintainable, and it
-  hides which behaviors are actually risky).
-- **Testing the spec's silence.** Inventing error cases the interface cannot
-  produce, because they "seem thorough".
-- **Skipping the code read.** The spec omits real error paths; rows sourced
-  from code are often the most valuable — and the ones most needing user
-  confirmation.
-
 ## Related
 
-- 1. `to-spec` — produces the spec and the confirmed seams this skill consumes.
-- 2. `tdd` — consumes the signed-off inventory as an ordered slice list;
-  owns the good-test bar (tests verify behavior through public interfaces) and
-  the anti-patterns this skill's rows are pre-checked against.
-- 3. `grilling` — the interview format used in Step 3.
-
-## Changelog
-
-- 1. 1.0.0 (2026-09-17) — initial version.
+1. `to-spec` — produces the spec and the confirmed seams this skill consumes.
+2. `tdd` — consumes the signed-off inventory as an ordered slice list;
+   owns the good-test bar (tests verify behavior through public interfaces) and
+   the anti-patterns this skill's rows are pre-checked against.
+3. `grilling` — the interview format used in Step 3.
